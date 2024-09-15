@@ -90,7 +90,7 @@ print("Filter good")
 
 
 # Извлечение массива точек
-points = np.asarray(pcd.points)
+points = np.asarray(filtered_pcd.points)
 
 # print(points)
 
@@ -106,11 +106,7 @@ ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='r')
 
 # Добавление тетраэдров
 for simplex in tri.simplices:
-    tetra = [points[simplex[i]] for i in range(4)]
-    poly3d = [[tetra[0], tetra[1], tetra[2]],
-              [tetra[0], tetra[1], tetra[3]],
-              [tetra[1], tetra[2], tetra[3]],
-              [tetra[0], tetra[2], tetra[3]]]
-    ax.add_collection3d(Poly3DCollection(poly3d, alpha=.25, linewidths=1, edgecolors='r'))
+    simplex = np.append(simplex, simplex[0])
+    ax.plot(points[simplex, 0], points[simplex, 1], points[simplex, 2], 'k-')
 
 plt.show()
