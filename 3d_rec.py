@@ -23,7 +23,7 @@ focal_length = 2000.47
 baseline = 110.548
 
 
-first = 'imeg/'
+first = 'imeg/Img'
 end = '.jpg'
 
 img_list1 = ['img30.jpg', 'img31.jpg', 'img32.jpg', 'img33.jpg']
