@@ -18,6 +18,30 @@ def find_new_point(x1, y1, distance, theta):
 
     return x2, y2
 
+def shift_image(data, depth_data, shift_amount=10):
+    # Ensure base image has alpha
+    # img = img.convert("RGBA")
+    # data = np.array(img)
+
+    # Ensure depth image is grayscale (for single value)
+    # depth_img = depth_img.convert("L")
+    # depth_data = np.array(depth_img)
+    deltas = ((depth_data / 255.0) * float(shift_amount)).astype(int)
+
+    # This creates the transparent resulting image.
+    # For now, we're dealing with pixel data.
+    shifted_data = np.zeros_like(data)
+
+    # height = data.shape[0]
+    width = data.shape[1]
+
+    for y, row in enumerate(deltas):
+        for x, dx in enumerate(row):
+            if x + dx < width and x + dx >= 0:
+                shifted_data[y][x][0] = shifted_data[y][x][0] + dx
+
+    return shifted_data
+
 # Параметры камеры
 focal_length = 2000.47
 baseline = 110.548
@@ -32,6 +56,7 @@ img_list = img_list2
 glodal_cloud_point = o3d.geometry.PointCloud()
 points_global = np.array([])
 corner = 0
+dispart_late = np.uint8()
 
 #проверку размера файла
 
@@ -40,7 +65,7 @@ corner = 0
 # imgR = cv2.imread('im22.png')
 
 # for i in range(len(img_list)-1):
-for i in range(1,10):
+for i in range(1,30):
     # if re.fullmatch(r"\w*.jpg|.png", img_list[i]):
     #     print('True')
     # imgL = cv2.imread(img_list[i])
@@ -67,24 +92,24 @@ for i in range(1,10):
     disparity = np.uint8(disparity)
 
     #-------------------------------------------------------------------------------------
-    # Создание детектора
-    orb = cv2.ORB_create()
-
-    # Нахождение ключевых точек и дескрипторов
-    kp_left, des_left = orb.detectAndCompute(imgL, None)
-    kp_right, des_right = orb.detectAndCompute(imgR, None)
+    # # Создание детектора
+    # orb = cv2.ORB_create()
+    #
+    # # Нахождение ключевых точек и дескрипторов
+    # kp_left, des_left = orb.detectAndCompute(imgL, None)
+    # kp_right, des_right = orb.detectAndCompute(imgR, None)
     # print(kp_left)
 
     # Сопоставление дескрипторов
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = bf.match(des_left, des_right)
+    # bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    # matches = bf.match(des_left, des_right)
 
     # Сортировка совпадений
-    matches = sorted(matches, key=lambda x: x.distance)
+    # matches = sorted(matches, key=lambda x: x.distance)
     # print(matches)
 
-    points1 = np.array([kp_left[m.queryIdx].pt for m in matches])
-    points2 = np.array([kp_right[m.trainIdx].pt for m in matches])
+    # points1 = np.array([kp_left[m.queryIdx].pt for m in matches])
+    # points2 = np.array([kp_right[m.trainIdx].pt for m in matches])
 
     #-----------------------------------------------------------------------------
     # блок создания трехмерных точек
@@ -96,6 +121,15 @@ for i in range(1,10):
                     [0, 0, 1/baseline, 0]])
 
     points_3D = cv2.reprojectImageTo3D(disparity, Q)
+    print(points_3D.ndim)
+
+    if i > 1:
+        print(points_3D)
+        print('AND')
+        points_3D = shift_image(points_3D, dispart_late,  shift_amount=100)
+        print(points_3D)
+
+    dispart_late = disparity
 
     # Маска для действительных значений
     mask = disparity > disparity.min()
@@ -103,53 +137,53 @@ for i in range(1,10):
     # Извлеките действительные точки и цвета
     valid_points = points_3D[mask]
 
-    if i == 1:
-        points_global = points2
-    else:
-        count_point = 0
-        sum_point = 0
-        distance = 0
-        Xc = 0
-        Yc = 0
-        # print(points_global)
-        # print(points1)
-        #выделяю точки, которые не принадлежат второй паре изображений
-        # rezult = np.setdiff1d(points1, points2, assume_unique=True)
-        rezult = np.array([p for p in points1 if p not in points_global])
-        # print(rezult)
-        # print(points1)
-        # print(points2)
-        #идем по точкам второй пары
-        for j in range(len(points1)):
-            # print(points1[j])
-            #исключаем те точки, что принадлежат первой
-            if rezult.size > 0 and not np.any(np.all(points1[j] == rezult, axis=1)):
-                # print(f"Элемент {points1[j]} не в result")
-                # print(points1[j])
-                # print(points2[j][0])
-                sum_point = sum_point + abs(points1[j][0] - points2[j][0])
-                count_point = count_point + 1
-        # print('Sum: ' + str(sum_point))
-        # print('Count: ' + str(count_point))
-        if sum_point != 0:
-            distance = round(sum_point/count_point, 3)
-            # print('Rezult: ' + str(round(sum_point/count_point, 3)))
-
-        print('Min: ' + str(min(valid_points[2])))
-        min_Z = min(valid_points[2])
-        max_Z = max(valid_points[2])
-
-        for k in valid_points:
-            if k[2] == max_Z:
-                Xc = k[0]
-                Yc = k[1]
-        print(valid_points)
-        corner = corner + math.atan2(valid_points[0][1] - Yc, valid_points[0][0] - Xc)
-        print('Corr: '+str(corner))
-        for item in valid_points:
-            item[0], item[1] = find_new_point(item[0], item[1], distance, corner)
-        print(valid_points)
-        points_global = points1
+    # if i == 1:
+    #     points_global = points2
+    # else:
+    #     count_point = 0
+    #     sum_point = 0
+    #     distance = 0
+    #     Xc = 0
+    #     Yc = 0
+    #     # print(points_global)
+    #     # print(points1)
+    #     #выделяю точки, которые не принадлежат второй паре изображений
+    #     # rezult = np.setdiff1d(points1, points2, assume_unique=True)
+    #     rezult = np.array([p for p in points1 if p not in points_global])
+    #     # print(rezult)
+    #     # print(points1)
+    #     # print(points2)
+    #     #идем по точкам второй пары
+    #     for j in range(len(points1)):
+    #         # print(points1[j])
+    #         #исключаем те точки, что принадлежат первой
+    #         if rezult.size > 0 and not np.any(np.all(points1[j] == rezult, axis=1)):
+    #             # print(f"Элемент {points1[j]} не в result")
+    #             # print(points1[j])
+    #             # print(points2[j][0])
+    #             sum_point = sum_point + abs(points1[j][0] - points2[j][0])
+    #             count_point = count_point + 1
+    #     # print('Sum: ' + str(sum_point))
+    #     # print('Count: ' + str(count_point))
+    #     if sum_point != 0:
+    #         distance = round(sum_point/count_point, 3)
+    #         # print('Rezult: ' + str(round(sum_point/count_point, 3)))
+    #
+    #     print('Min: ' + str(min(valid_points[2])))
+    #     min_Z = min(valid_points[2])
+    #     max_Z = max(valid_points[2])
+    #
+    #     for k in valid_points:
+    #         if k[2] == max_Z:
+    #             Xc = k[0]
+    #             Yc = k[1]
+    #     print(valid_points)
+    #     corner = corner + math.atan2(valid_points[0][1] - Yc, valid_points[0][0] - Xc)
+    #     print('Corr: '+str(corner))
+    #     for item in valid_points:
+    #         item[0], item[1] = find_new_point(item[0], item[1], distance, corner)
+    #     print(valid_points)
+    #     points_global = points1
     #выводм колчество полученных точек
     print("Count point valid_points: ", len(valid_points))
     print('Min: '+ str(min(valid_points[2])))
@@ -167,8 +201,8 @@ for i in range(1,10):
     pcd.colors = o3d.utility.Vector3dVector(valid_colors / 255.0)
 
     # отсеиваем половину, поскольку комп может не выдержать большой нагрузки
-    rezult_pcd = pcd.uniform_down_sample(every_k_points=2)
-    # rezult_pcd = pcd
+    # rezult_pcd = pcd.uniform_down_sample(every_k_points=2)
+    rezult_pcd = pcd
 
     print("Count point rezult_pcd: ", len(rezult_pcd.points))
 
@@ -191,36 +225,36 @@ print("Облако точек сохранено в 'point_cloud.ply'")
 # -------------------------------------------------------------------------
 
 # визуализация облака точек
-# o3d.visualization.draw_geometries([glodal_cloud_point])
+o3d.visualization.draw_geometries([glodal_cloud_point])
 # -------------------------------------------------------------------------
 
 
-# Визуализация облака точек с помощью matplotlib
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-xyz_point = np.asarray(glodal_cloud_point.points)
-
-# Извлечение координат
-x = xyz_point[:, 0]
-y = xyz_point[:, 1]
-z = xyz_point[:, 2]
-
-# Отображение облака точек
-ax.scatter(x, y, z)
-
-# Настройка меток осей
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-
-# Настройка пределов осей
-ax.set_xlim([15000, -2000])
-ax.set_ylim([1000, -15000])
-ax.set_zlim([1000, -15000])
-
-# Показать график
-plt.show()
+# # Визуализация облака точек с помощью matplotlib
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+#
+# xyz_point = np.asarray(glodal_cloud_point.points)
+#
+# # Извлечение координат
+# x = xyz_point[:, 0]
+# y = xyz_point[:, 1]
+# z = xyz_point[:, 2]
+#
+# # Отображение облака точек
+# ax.scatter(x, y, z)
+#
+# # Настройка меток осей
+# ax.set_xlabel('X Label')
+# ax.set_ylabel('Y Label')
+# ax.set_zlabel('Z Label')
+#
+# # Настройка пределов осей
+# ax.set_xlim([15000, -2000])
+# ax.set_ylim([1000, -15000])
+# ax.set_zlim([1000, -15000])
+#
+# # Показать график
+# plt.show()
 
 
 
@@ -255,9 +289,16 @@ else:
 #     glodal_cloud_point,
 #     o3d.utility.DoubleVector([0.4, 0.3, 0.4])  # Задайте радиусы для метода
 # )
-mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-    filtered_pcd, depth=11
-)
+# mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+#     filtered_pcd, depth=11
+# )
+# filtered_pcd
+# surface reconstruction
+mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(filtered_pcd, depth=10, n_threads=1)[0]
+
+# rotate the mesh
+rotation = mesh.get_rotation_matrix_from_xyz((np.pi, 0, 0))
+# mesh.rotate(rotation, center=(0, 0, 0))
 
 if mesh.is_empty():
     print('Mesh empty!')
