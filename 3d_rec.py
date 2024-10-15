@@ -9,38 +9,44 @@ from mpl_toolkits.mplot3d import Axes3D
 import open3d as o3d
 import re
 
-def find_new_point(x1, y1, distance, theta):
-    # Вычисляем угол между центром и начальной точкой
+def find_new_point(data, i):
+    # Определение центра вращения
+    x_center = np.mean(data[:, 0])
+    y_center = np.mean(data[:, 1])
+    z_center = np.min(data[:, 2])
+    print(z_center)
+    # for row in data:
+    #     if row[2] == z_center:
+    #         x_center = row[0]
+    #         y_center = row[1]
+    center = np.array([x_center, y_center, z_center])
+    print(data)
+    print("And ")
 
-    # Вычисляем координаты новой точки
-    x2 = x1 + distance * math.cos(theta)
-    y2 = y1 + distance * math.sin(theta)
+    # Угол альфа (в радианах)
+    alpha = np.radians(20*i)  # Например, для угла 45 градусов
 
-    return x2, y2
+    # Матрица поворота для вращения вокруг оси Z
+    def rotation_matrix_z(theta):
+        # return np.array([[np.cos(theta), -np.sin(theta), 0],
+        #                  [np.sin(theta), np.cos(theta), 0],
+        #                  [0, 0, 1]])
+        return np.array([[np.cos(theta), 0, np.sin(theta)],
+                         [0, 1, 0],
+                         [-np.sin(theta), 0, np.cos(theta)]])
 
-def shift_image(data, depth_data, shift_amount=10):
-    # Ensure base image has alpha
-    # img = img.convert("RGBA")
-    # data = np.array(img)
+    # Матрица поворота
+    rotation_matrix = rotation_matrix_z(alpha)
 
-    # Ensure depth image is grayscale (for single value)
-    # depth_img = depth_img.convert("L")
-    # depth_data = np.array(depth_img)
-    deltas = ((depth_data / 255.0) * float(shift_amount)).astype(int)
+    # Перенос данных к центру вращения
+    data_centered = data - center
 
-    # This creates the transparent resulting image.
-    # For now, we're dealing with pixel data.
-    shifted_data = np.zeros_like(data)
+    # Поворот данных
+    data_rotated = np.dot(data_centered, rotation_matrix.T) + center
+    print(data_rotated)
 
-    # height = data.shape[0]
-    width = data.shape[1]
+    return data_rotated
 
-    for y, row in enumerate(deltas):
-        for x, dx in enumerate(row):
-            if x + dx < width and x + dx >= 0:
-                shifted_data[y][x][0] = shifted_data[y][x][0] + dx
-
-    return shifted_data
 
 # Параметры камеры
 focal_length = 2000.47
@@ -53,7 +59,7 @@ end = '.jpg'
 img_list1 = ['img30.jpg', 'img31.jpg', 'img32.jpg', 'img33.jpg']
 img_list2 = ['img34.jpg', 'img35.jpg', 'img36.jpg', 'img37.jpg']
 img_list = img_list2
-glodal_cloud_point = o3d.geometry.PointCloud()
+glodal_cloud_point = np.array([])
 points_global = np.array([])
 corner = 0
 dispart_late = np.uint8()
@@ -65,7 +71,7 @@ dispart_late = np.uint8()
 # imgR = cv2.imread('im22.png')
 
 # for i in range(len(img_list)-1):
-for i in range(1,30):
+for i in range(1,10):
     # if re.fullmatch(r"\w*.jpg|.png", img_list[i]):
     #     print('True')
     # imgL = cv2.imread(img_list[i])
@@ -121,15 +127,16 @@ for i in range(1,30):
                     [0, 0, 1/baseline, 0]])
 
     points_3D = cv2.reprojectImageTo3D(disparity, Q)
+
     print(points_3D.ndim)
 
-    if i > 1:
-        print(points_3D)
-        print('AND')
-        points_3D = shift_image(points_3D, dispart_late,  shift_amount=100)
-        print(points_3D)
-
-    dispart_late = disparity
+    # if i > 1:
+    #     print(points_3D)
+    #     print('AND')
+    #     points_3D = shift_image(points_3D, dispart_late,  shift_amount=100)
+    #     print(points_3D)
+    #
+    # dispart_late = disparity
 
     # Маска для действительных значений
     mask = disparity > disparity.min()
@@ -137,53 +144,6 @@ for i in range(1,30):
     # Извлеките действительные точки и цвета
     valid_points = points_3D[mask]
 
-    # if i == 1:
-    #     points_global = points2
-    # else:
-    #     count_point = 0
-    #     sum_point = 0
-    #     distance = 0
-    #     Xc = 0
-    #     Yc = 0
-    #     # print(points_global)
-    #     # print(points1)
-    #     #выделяю точки, которые не принадлежат второй паре изображений
-    #     # rezult = np.setdiff1d(points1, points2, assume_unique=True)
-    #     rezult = np.array([p for p in points1 if p not in points_global])
-    #     # print(rezult)
-    #     # print(points1)
-    #     # print(points2)
-    #     #идем по точкам второй пары
-    #     for j in range(len(points1)):
-    #         # print(points1[j])
-    #         #исключаем те точки, что принадлежат первой
-    #         if rezult.size > 0 and not np.any(np.all(points1[j] == rezult, axis=1)):
-    #             # print(f"Элемент {points1[j]} не в result")
-    #             # print(points1[j])
-    #             # print(points2[j][0])
-    #             sum_point = sum_point + abs(points1[j][0] - points2[j][0])
-    #             count_point = count_point + 1
-    #     # print('Sum: ' + str(sum_point))
-    #     # print('Count: ' + str(count_point))
-    #     if sum_point != 0:
-    #         distance = round(sum_point/count_point, 3)
-    #         # print('Rezult: ' + str(round(sum_point/count_point, 3)))
-    #
-    #     print('Min: ' + str(min(valid_points[2])))
-    #     min_Z = min(valid_points[2])
-    #     max_Z = max(valid_points[2])
-    #
-    #     for k in valid_points:
-    #         if k[2] == max_Z:
-    #             Xc = k[0]
-    #             Yc = k[1]
-    #     print(valid_points)
-    #     corner = corner + math.atan2(valid_points[0][1] - Yc, valid_points[0][0] - Xc)
-    #     print('Corr: '+str(corner))
-    #     for item in valid_points:
-    #         item[0], item[1] = find_new_point(item[0], item[1], distance, corner)
-    #     print(valid_points)
-    #     points_global = points1
     #выводм колчество полученных точек
     print("Count point valid_points: ", len(valid_points))
     print('Min: '+ str(min(valid_points[2])))
@@ -192,6 +152,8 @@ for i in range(1,30):
     print("Count point valid_points: ", len(valid_points))
 
     valid_colors = cv2.cvtColor(grayL, cv2.COLOR_GRAY2RGB)[mask]
+    if i > 1:
+        valid_points = find_new_point(valid_points, i)
     # ----------------------------------------------------------------------------
 
     # -------------------------------------------------------------------
