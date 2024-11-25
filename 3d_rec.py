@@ -42,14 +42,14 @@ def get_map(image):
 
     image = image.crop((pad, pad, image.width - pad, image.height - pad))
 
-    # # visualize the prediction
-    # fig, ax = plt.subplots(1, 2)
-    # ax[0].imshow(image)
-    # ax[0].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-    # ax[1].imshow(output, cmap='plasma')
-    # ax[1].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
-    # plt.tight_layout()
-    # plt.pause(5)
+    # visualize the prediction
+    fig, ax = plt.subplots(1, 2)
+    ax[0].imshow(image)
+    ax[0].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    ax[1].imshow(output, cmap='plasma')
+    ax[1].tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    plt.tight_layout()
+    plt.pause(5)
     print("Map good")
     return output_inverted, image
 
@@ -183,9 +183,6 @@ def get_filt_point(pcd):
     return filtered_pcd
 
 def create_mesh(pcd):
-    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=20.0)
-    pcd = pcd.select_by_index(ind)
-
     # estimate normals
     pcd.estimate_normals()
     pcd.orient_normals_to_align_with_direction()
@@ -196,10 +193,10 @@ def create_mesh(pcd):
     # rotate the mesh
     rotation = mesh.get_rotation_matrix_from_xyz((np.pi, 0, 0))
     mesh.rotate(rotation, center=(0, 0, 0))
-    # o3d.visualization.draw_geometries([mesh])
-
+    o3d.visualization.draw_geometries([mesh])
+    #
     # save the mesh
-    # o3d.io.write_triangle_mesh(f'./mesh.obj', mesh)
+    o3d.io.write_triangle_mesh(f'./mesh.obj', mesh)
     print("Mesh good")
 
 def get_center_point(pcd):
@@ -339,8 +336,74 @@ def visualize_segmented_objects(inlier_cloud, outlier_cloud):
 # Начало отсчета времени
 start_time = time.time()
 
-name_1 = "imeg/Img1.jpg"
-name_2 = "imeg/Img2.jpg"
+name_1 = "imeg/img5.jpg"
+
+image = Image.open(name_1)
+
+#получаем крту глубины
+output_inverted, image = get_map(image)
+
+#Выделение обьекта на изображении
+# points_inside_contourR, depth_inside_contoursR, resized_imageR = contour(output_invertedR, imageR)
+points_inside_contour, depth_inside_contours, resized_image = contour(output_inverted, image)
+#получение облака точек из выделенной области
+pcd = get_point_cloud(depth_inside_contours, resized_image)
+
+# фильтрация облака точек
+print("Points before filtering: ", len(pcd.points))
+pcd = get_filt_point(pcd)
+print("Points after filtering: ", len(pcd.points))
+# визуальзация в пространствеs
+visualize_point_cloud(pcd)
+
+# создание обькта
+create_mesh(pcd) #196sxd
+
+# Конец отсчета времени
+end_time = time.time()
+
+# Вычисление времени выполнения
+execution_time = end_time - start_time
+print(f"Время выполнения: {execution_time:.6f} секунд")
+
+# Начало отсчета времени
+start_time = time.time()
+
+name_1 = "imeg/test3.jpg"
+
+image = Image.open(name_1)
+
+#получаем крту глубины
+output_inverted, image = get_map(image)
+
+#Выделение обьекта на изображении
+# points_inside_contourR, depth_inside_contoursR, resized_imageR = contour(output_invertedR, imageR)
+points_inside_contour, depth_inside_contours, resized_image = contour(output_inverted, image)
+#получение облака точек из выделенной области
+pcd = get_point_cloud(depth_inside_contours, resized_image)
+
+# фильтрация облака точек
+print("Points before filtering: ", len(pcd.points))
+pcd = get_filt_point(pcd)
+print("Points after filtering: ", len(pcd.points))
+# визуальзация в пространствеs
+visualize_point_cloud(pcd)
+
+# создание обькта
+create_mesh(pcd) #196sxd
+
+# Конец отсчета времени
+end_time = time.time()
+
+# Вычисление времени выполнения
+execution_time = end_time - start_time
+print(f"Время выполнения: {execution_time:.6f} секунд")
+
+# Начало отсчета времени
+start_time = time.time()
+
+name_1 = "imeg/img5.jpg"
+name_2 = "imeg/img4.jpg"
 
 image = Image.open(name_1)
 imageR = Image.open(name_2)
@@ -350,40 +413,78 @@ output_inverted, image = get_map(image)
 output_invertedR, imageR = get_map(imageR)
 
 #Выделение обьекта на изображении
-# points_inside_contourR, depth_inside_contoursR, resized_imageR = contour(output_invertedR, imageR)
-# points_inside_contour, depth_inside_contours, resized_image = contour(output_inverted, image)
+points_inside_contourR, depth_inside_contoursR, resized_imageR = contour(output_invertedR, imageR)
+points_inside_contour, depth_inside_contours, resized_image = contour(output_inverted, image)
 #получение облака точек из выделенной области
-# pcd = get_point_cloud(depth_inside_contours, resized_image)
-# pcdR = get_point_cloud(depth_inside_contoursR, resized_imageR)
-
-#получаем облако точек
-pcd = get_point_cloud(output_inverted, image)
-pcdR = get_point_cloud(output_invertedR, imageR)
-
-# # Сегментация
-# inlier_cloud, outlier_cloud, plane_model = segment_planes(pcd)
-# visualize_segmented_objects(inlier_cloud, outlier_cloud)  # Визуализация
-
-# визуплизация с осями
-# visualize_point_cloud_math(pcd)
-# визуальзация в пространстве
-visualize_point_cloud(pcd)
-visualize_point_cloud(pcdR)
+pcd = get_point_cloud(depth_inside_contours, resized_image)
+pcdR = get_point_cloud(depth_inside_contoursR, resized_imageR)
 
 # фильтрация облака точек
 print("Points before filtering: ", len(pcd.points))
 pcd = get_filt_point(pcd)
 pcdR = get_filt_point(pcdR)
 print("Points after filtering: ", len(pcd.points))
+# визуальзация в пространствеs
+visualize_point_cloud(pcd)
+visualize_point_cloud(pcdR)
 
 #смещение облака точек и совмещение
 center = get_center_point(pcd)
 centerR = get_center_point(pcdR)
 angle = get_dispance(name_1, name_2, center)
 pcd = merge_point_clouds(pcd, rotate_point_cloud(pcdR, angle, centerR))
+# # Сегментация
 
-#создание обькта
-create_mesh(pcd)
+
+# создание обькта
+create_mesh(pcd) #196sxd
+
+# Конец отсчета времени
+end_time = time.time()
+
+# Вычисление времени выполнения
+execution_time = end_time - start_time
+print(f"Время выполнения: {execution_time:.6f} секунд")
+
+# Начало отсчета времени
+start_time = time.time()
+
+name_1 = "imeg/test1.jpg"
+name_2 = "imeg/test3.jpg"
+
+image = Image.open(name_1)
+imageR = Image.open(name_2)
+
+#получаем крту глубины
+output_inverted, image = get_map(image)
+output_invertedR, imageR = get_map(imageR)
+
+#Выделение обьекта на изображении
+points_inside_contourR, depth_inside_contoursR, resized_imageR = contour(output_invertedR, imageR)
+points_inside_contour, depth_inside_contours, resized_image = contour(output_inverted, image)
+#получение облака точек из выделенной области
+pcd = get_point_cloud(depth_inside_contours, resized_image)
+pcdR = get_point_cloud(depth_inside_contoursR, resized_imageR)
+
+# фильтрация облака точек
+print("Points before filtering: ", len(pcd.points))
+pcd = get_filt_point(pcd)
+pcdR = get_filt_point(pcdR)
+print("Points after filtering: ", len(pcd.points))
+# визуальзация в пространствеs
+visualize_point_cloud(pcd)
+visualize_point_cloud(pcdR)
+
+#смещение облака точек и совмещение
+center = get_center_point(pcd)
+centerR = get_center_point(pcdR)
+angle = get_dispance(name_1, name_2, center)
+pcd = merge_point_clouds(pcd, rotate_point_cloud(pcdR, angle, centerR))
+# # Сегментация
+
+
+# создание обькта
+create_mesh(pcd) #196sxd
 
 # Конец отсчета времени
 end_time = time.time()
